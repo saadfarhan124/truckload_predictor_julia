@@ -50,7 +50,7 @@ route("/hello", method=POST) do
   weightedMaxPrice = (p_df[!,:HighSpot]'*weights)/sum(weights)
   weightedDev = (p_df[!,:SpotDeviation]'*weights)/sum(weights)
 
-  return JSONTables.json_table([(round(weightedMinPrice,digits=2),round(weightedMedianPrice,digits=2),round(weightedMaxPrice,digits=2), round(weightedDev,digits=2))])
+  return json(round(weightedMinPrice,digits=2),round(weightedMedianPrice,digits=2),round(weightedMaxPrice,digits=2), round(weightedDev,digits=2))
 
 end
 
