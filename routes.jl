@@ -16,6 +16,18 @@ zll = zipdf[!,[:city,:state_id,:zip,:latitude,:longitude]]
 predictions_df = CSV.File("./preds.csv")|>DataFrame
 pred = predictions_df[!,[:Date,:OriginCity,:OriginState,:OriginZip,:DestinationCity,:DestinationState,:DestinationZip,:Distance,:EquipmentType,:LowSpot,:MedianSpot,:HighSpot,:SpotDeviation,:OriginLatitude,:OriginLongitude,:DestinationLatitude,:DestinationLongitude]]
 
+function getApproximateDistance(lat1, long1, lat2, long2)
+  D2 = (111 * (lat1-lat2))^2 + (85 * (long1-long2))^2
+  #=
+  The distance of one degree latitude is approximately 111 kilometers (constant around the earth)
+  The distance of one degree longitude in the center of the contiguous USA (Lebanon, Kansas)
+  is approximately 85 kilometers.
+  We're using kilometers since we'll use a weighted average later.  The weights will be
+  1/(1+D) and the 1 in the denominator will have less effect for longer distances, so we use kilometers
+  =#
+  D = sqrt(D2)
+  return D
+end 
 
 route("/hello", method=POST) do
   raw = jsonpayload()
