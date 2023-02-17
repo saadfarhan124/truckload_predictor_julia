@@ -50,7 +50,7 @@ route("/hello", method=POST) do
   weightedMaxPrice = (p_df[!,:HighSpot]'*weights)/sum(weights)
   weightedDev = (p_df[!,:SpotDeviation]'*weights)/sum(weights)
 
-  return json(Dict(round(weightedMinPrice,digits=2),round(weightedMedianPrice,digits=2),round(weightedMaxPrice,digits=2), round(weightedDev,digits=2)))
+  return json(Dict("Min":round(weightedMinPrice,digits=2),"Median":round(weightedMedianPrice,digits=2),"Max":round(weightedMaxPrice,digits=2)))
 
 end
 
