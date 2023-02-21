@@ -33,25 +33,42 @@ route("/hello", method=POST) do
   raw = jsonpayload()
 
   p_df = copy(pred)
-  r,c = size(p_df)
+  marketzips = unique(p_df[!,:OriginZip])
+  outbounddf = filter(row -> row[:zip] in marketzips, zll)
+  origin_df = filter(row -> row[:zip] == raw["origin_zip"],zll)
+  olat,olong = origin_df[1,[:latitude,:longitude]]
+  odistances = getApproximateDistance.(olat,olong,outbounddf[!,:latitude],outbounddf[!,:longitude])
+  insertcols!(outbounddf,6,:DistanceToOrigin => odistances)
+  outbounddf = sort(outbounddf,:DistanceToOrigin)
+  top3marketsin = outbounddf[1:3,:zip]
+  outboundpredictions = filter(row -> row[:OriginZip] in top3marketsin, p_df)
+  
+  marketzips = unique(outboundpredictions[!,:DestinationZip])
+  inbounddf = filter(row -> row[:zip] in marketzips, zll)
+  destination_df = filter(row -> row[:zip] == raw["destination_zip"],zll)
+  dlat,dlong = destination_df[1,[:latitude,:longitude]]
+  ddistances = getApproximateDistance.(dlat,dlong,inbounddf[!,:latitude],inbounddf[!,:longitude])
+  insertcols!(inbounddf,6,:DistanceToDestination => ddistances)
+  inbounddf = sort(inbounddf,:DistanceToDestination)
+  top3marketsout = inbounddf[1:3,:zip]
+  inboundpredictions = filter(row -> row[:DestinationZip] in top3marketsout, outboundpredictions)
+
+  r,c = size(inboundpredictions)
   origin_df = filter(row -> row[:zip] == raw["origin_zip"],zll)
   olat,olong = origin_df[1,[:latitude,:longitude]]
   destination_df = filter(row -> row[:zip] == raw["destination_zip"],zll)
   dlat,dlong = destination_df[1,[:latitude,:longitude]]
-
-  odistances = getApproximateDistance.(olat,olong,p_df[!,:OriginLatitude],p_df[!,:OriginLongitude])
-  insertcols!(p_df,c+1,:DistanceToOrigin => odistances)
-  ddistances = getApproximateDistance.(dlat,dlong,p_df[!,:DestinationLatitude],p_df[!,:DestinationLongitude])
-  insertcols!(p_df,c+2,:DistanceToDestination => ddistances)
+  odistances = getApproximateDistance.(olat,olong,inboundpredictions[!,:OriginLatitude],inboundpredictions[!,:OriginLongitude])
+  insertcols!(inboundpredictions,c+1,:DistanceToOrigin => odistances)
+  ddistances = getApproximateDistance.(dlat,dlong,inboundpredictions[!,:DestinationLatitude],inboundpredictions[!,:DestinationLongitude])
+  insertcols!(inboundpredictions,c+2,:DistanceToDestination => ddistances)
   weights = (1 .+ odistances).^-2 .* (1 .+ ddistances).^-2
-  insertcols!(p_df, c+3, :Weights => weights)
-  weightedMinPrice = (p_df[!,:LowSpot]'*weights)/sum(weights)
-  weightedMedianPrice = (p_df[!,:MedianSpot]'*weights)/sum(weights)
-  weightedMaxPrice = (p_df[!,:HighSpot]'*weights)/sum(weights)
-  weightedDev = (p_df[!,:SpotDeviation]'*weights)/sum(weights)
-
+  insertcols!(inboundpredictions, c+3, :Weights => weights)
+  weightedMinPrice = (inboundpredictions[!,:LowSpot]'*weights)/sum(weights)
+  weightedMedianPrice = (inboundpredictions[!,:MedianSpot]'*weights)/sum(weights)
+  weightedMaxPrice = (inboundpredictions[!,:HighSpot]'*weights)/sum(weights)
+  weightedDev = (inboundpredictions[!,:SpotDeviation]'*weights)/sum(weights)
   return json(Dict("Min" => round(weightedMinPrice,digits=2),"Median" => round(weightedMedianPrice,digits=2),"Max" => round(weightedMaxPrice,digits=2)))
-
 end
 
 
