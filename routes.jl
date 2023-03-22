@@ -1,3 +1,4 @@
+using GoogleCloud
 using LinearAlgebra, StatsBase, XGBoost, CSV, DataFrames, Dates
 using Statistics: median, mean
 using Genie, Genie.Router
@@ -13,8 +14,6 @@ Genie.config.cors_allowed_origins = ["*"]
 
 zipdf = CSV.File("./uszips3.csv")|>DataFrame
 zll = zipdf[!,[:city,:state_id,:zip,:latitude,:longitude]]
-predictions_df = CSV.File("./preds.csv")|>DataFrame
-pred = predictions_df[!,[:Date,:OriginCity,:OriginState,:OriginZip,:DestinationCity,:DestinationState,:DestinationZip,:Distance,:EquipmentType,:LowSpot,:MedianSpot,:HighSpot,:SpotDeviation,:OriginLatitude,:OriginLongitude,:DestinationLatitude,:DestinationLongitude]]
 
 function getApproximateDistance(lat1, long1, lat2, long2)
   D2 = (111 * (lat1-lat2))^2 + (85 * (long1-long2))^2
@@ -30,9 +29,15 @@ function getApproximateDistance(lat1, long1, lat2, long2)
 end 
 
 route("/hello", method=POST) do
-  raw = jsonpayload()
-
-  p_df = copy(pred)
+  raw = jsonpayload()  
+  credentials = JSONCredentials(expanduser("./cred.json"))
+  session = GoogleSession(credentials, ["devstorage.full_control"])
+  set_session!(storage, session)    # storage is the API root, exported from GoogleCloud.jl
+  bucket = "0x66"
+  file_path = "preds.csv"
+  file_content = storage(:Object, :get, bucket, file_path);
+  predictions_df = CSV.File(file_content) |> DataFrame
+  pred = predictions_df[!,[:Date,:OriginCity,:OriginState,:OriginZip,:DestinationCity,:DestinationState,:DestinationZip,:Distance,:EquipmentType,:LowSpot,:MedianSpot,:HighSpot,:SpotDeviation,:OriginLatitude,:OriginLongitude,:DestinationLatitude,:DestinationLongitude]]
   marketzipsin = unique(p_df[!,:OriginZip])
   outbounddf = filter(row -> row[:zip] in marketzipsin, zll)
   origin_df = filter(row -> row[:zip] == raw["origin_zip"],zll)
