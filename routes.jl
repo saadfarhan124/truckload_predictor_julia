@@ -1,4 +1,3 @@
-using GoogleCloud
 using LinearAlgebra, StatsBase, XGBoost, CSV, DataFrames, Dates
 using Statistics: median, mean
 using Genie, Genie.Router
@@ -14,6 +13,12 @@ Genie.config.cors_allowed_origins = ["*"]
 
 zipdf = CSV.File("./uszips3.csv")|>DataFrame
 zll = zipdf[!,[:city,:state_id,:zip,:latitude,:longitude]]
+dryvan_predictions_df = CSV.File("./dryvan_preds.csv")|>DataFrame
+reefer_predictions_df = CSV.File("./reefer_preds.csv")|>DataFrame
+flatbed_predictions_df = CSV.File("./flatbed_preds.csv")|>DataFrame
+dryvan_pred = dryvan_predictions_df[!,[:Date,:OriginCity,:OriginState,:OriginZip,:DestinationCity,:DestinationState,:DestinationZip,:Distance,:EquipmentType,:LowSpot,:MedianSpot,:HighSpot,:SpotDeviation,:OriginLatitude,:OriginLongitude,:DestinationLatitude,:DestinationLongitude]]
+reefer_pred = reefer_predictions_df[!,[:Date,:OriginCity,:OriginState,:OriginZip,:DestinationCity,:DestinationState,:DestinationZip,:Distance,:EquipmentType,:LowSpot,:MedianSpot,:HighSpot,:SpotDeviation,:OriginLatitude,:OriginLongitude,:DestinationLatitude,:DestinationLongitude]]
+flatbed_pred = flatbed_predictions_df[!,[:Date,:OriginCity,:OriginState,:OriginZip,:DestinationCity,:DestinationState,:DestinationZip,:Distance,:EquipmentType,:LowSpot,:MedianSpot,:HighSpot,:SpotDeviation,:OriginLatitude,:OriginLongitude,:DestinationLatitude,:DestinationLongitude]]
 
 function getApproximateDistance(lat1, long1, lat2, long2)
   D2 = (111 * (lat1-lat2))^2 + (85 * (long1-long2))^2
@@ -29,15 +34,14 @@ function getApproximateDistance(lat1, long1, lat2, long2)
 end 
 
 route("/hello", method=POST) do
-  raw = jsonpayload()  
-  credentials = JSONCredentials(expanduser("./cred.json"))
-  session = GoogleSession(credentials, ["devstorage.full_control"])
-  set_session!(storage, session)    # storage is the API root, exported from GoogleCloud.jl
-  bucket = "0x66"
-  file_path = "preds.csv"
-  file_content = storage(:Object, :get, bucket, file_path);
-  predictions_df = CSV.File(file_content) |> DataFrame
-  pred = predictions_df[!,[:Date,:OriginCity,:OriginState,:OriginZip,:DestinationCity,:DestinationState,:DestinationZip,:Distance,:EquipmentType,:LowSpot,:MedianSpot,:HighSpot,:SpotDeviation,:OriginLatitude,:OriginLongitude,:DestinationLatitude,:DestinationLongitude]]
+  raw = jsonpayload()
+  if raw["equipment_type"] == "dryvan"
+    p_df = copy(dryvan_pred)
+  elseif raw["equipment_type"] == "reefer"
+    p_df = copy(reefer_pred)
+  elseif raw["equipment_type"] == "flatbed"
+    p_df = copy(flatbed_pred)
+  end
   marketzipsin = unique(p_df[!,:OriginZip])
   outbounddf = filter(row -> row[:zip] in marketzipsin, zll)
   origin_df = filter(row -> row[:zip] == raw["origin_zip"],zll)
@@ -75,7 +79,3 @@ route("/hello", method=POST) do
   weightedDev = (inboundpredictions[!,:SpotDeviation]'*weights)/sum(weights)
   return json(Dict("Min" => round(weightedMinPrice,digits=2),"Median" => round(weightedMedianPrice,digits=2),"Max" => round(weightedMaxPrice,digits=2)))
 end
-
-
-
-

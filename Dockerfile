@@ -30,12 +30,12 @@ EXPOSE 80
 ENV JULIA_DEPOT_PATH "/home/genie/.julia"
 ENV GENIE_ENV "dev"
 ENV GENIE_HOST "0.0.0.0"
-ENV PORT "8000"
-ENV WSPORT "8000"
+ENV PORT "8800"
+ENV WSPORT "8800"
 ENV EARLYBIND "true"
 
 # run app
-CMD ["bin/server"]
+CMD ["julia", "--project=/home/genie/app", "-e", "using Genie; Genie.loadapp()"]
 
 # or maybe include a Julia file
 # CMD julia -e 'using Pkg; Pkg.activate("."); include("IrisClustering.jl"); '
