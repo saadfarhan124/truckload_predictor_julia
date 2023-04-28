@@ -101,7 +101,7 @@ route("/hello", method=POST) do
   weightedMedianPrice = (inboundpredictions[!,:MedianSpot]'*weights)/sum(weights)
   weightedMaxPrice = (inboundpredictions[!,:HighSpot]'*weights)/sum(weights)
   # weightedDev = (inboundpredictions[!,:SpotDeviation]'*weights)/sum(weights)
-  return json(Dict("Min" => round(weightedMinPrice,digits=2),"Median" => round(weightedMedianPrice,digits=2),"Max" => round(weightedMaxPrice,digits=2)))
+  return json(Dict("Min" => round(weightedMinPrice,digits=2),"Median" => round(weightedMedianPrice,digits=2),"Max" => round(weightedMaxPrice,digits=2), "file_path" => file_path))
 end
 
 
