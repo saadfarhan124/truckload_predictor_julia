@@ -1,9 +1,10 @@
-using GoogleCloud
 using LinearAlgebra, StatsBase, XGBoost, CSV, DataFrames, Dates
 using Statistics: median, mean
 using Genie, Genie.Router
 using Genie.Renderer, Genie.Renderer.Html, Genie.Renderer.Json, Genie.Requests
 using JSONTables
+using GoogleCloud
+
 
 Genie.config.run_as_server = true
 Genie.config.cors_headers["Access-Control-Allow-Origin"] = "*"
@@ -34,13 +35,40 @@ route("/hello", method=POST) do
   session = GoogleSession(credentials, ["devstorage.full_control"])
   set_session!(storage, session)    # storage is the API root, exported from GoogleCloud.jl
   bucket = "0x66"
-  file_path = "preds.csv"
+  file_path = "M2M_"
+  if raw["distance"] <= 999
+    file_path *= "short_"
+  elseif raw["distance"] >= 1000 && raw["distance"] <= 1500
+    file_path *= "medium_"
+  elseif raw["distance"] >= 1501 && raw["distance"] <= 3000
+    file_path *= "long_"
+  elseif raw["distance"] >= 3001 
+    file_path *= "XL_"
+  else
+      # do nothing or add an appropriate error handling code here
+  end
+
+  if raw["equipment_type"] == 1
+      file_path *= "V.csv"
+  elseif raw["equipment_type"] == 3
+      file_path *= "F.csv"
+  elseif raw["equipment_type"] == 2
+      file_path *= "R.csv"
+  else
+      # do nothing or add an appropriate error handling code here
+  end
+  print(file_path)
   file_content = storage(:Object, :get, bucket, file_path);
   predictions_df = CSV.File(file_content) |> DataFrame
-  pred = predictions_df[!,[:Date,:OriginCity,:OriginState,:OriginZip,:DestinationCity,:DestinationState,:DestinationZip,:Distance,:EquipmentType,:LowSpot,:MedianSpot,:HighSpot,:SpotDeviation,:OriginLatitude,:OriginLongitude,:DestinationLatitude,:DestinationLongitude]]
+  pred = predictions_df[!,[:Date,:OriginCity,:OriginState,:OriginZip,:DestinationCity,:DestinationState,:DestinationZip,:Distance,:EquipmentType,:MedianSpot,:SpotDeviation,:OriginLatitude,:OriginLongitude,:DestinationLatitude,:DestinationLongitude]]
+  pred[!, :LowSpot] = pred[!, :MedianSpot] - pred[!, :SpotDeviation]
+  pred[!, :HighSpot] = pred[!, :MedianSpot] + pred[!, :SpotDeviation]
+
+  p_df = copy(pred)
   marketzipsin = unique(p_df[!,:OriginZip])
   outbounddf = filter(row -> row[:zip] in marketzipsin, zll)
   origin_df = filter(row -> row[:zip] == raw["origin_zip"],zll)
+
   olat,olong = origin_df[1,[:latitude,:longitude]]
   odistances = getApproximateDistance.(olat,olong,outbounddf[!,:latitude],outbounddf[!,:longitude])
   insertcols!(outbounddf,6,:DistanceToOrigin => odistances)
@@ -72,7 +100,7 @@ route("/hello", method=POST) do
   weightedMinPrice = (inboundpredictions[!,:LowSpot]'*weights)/sum(weights)
   weightedMedianPrice = (inboundpredictions[!,:MedianSpot]'*weights)/sum(weights)
   weightedMaxPrice = (inboundpredictions[!,:HighSpot]'*weights)/sum(weights)
-  weightedDev = (inboundpredictions[!,:SpotDeviation]'*weights)/sum(weights)
+  # weightedDev = (inboundpredictions[!,:SpotDeviation]'*weights)/sum(weights)
   return json(Dict("Min" => round(weightedMinPrice,digits=2),"Median" => round(weightedMedianPrice,digits=2),"Max" => round(weightedMaxPrice,digits=2)))
 end
 

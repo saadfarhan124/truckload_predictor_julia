@@ -7,6 +7,8 @@ RUN useradd --create-home --shell /bin/bash genie
 # set up the app
 RUN mkdir /home/genie/app
 COPY . /home/genie/app
+COPY cred.json /home/genie/app
+
 WORKDIR /home/genie/app
 
 # configure permissions
