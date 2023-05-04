@@ -1,0 +1,19 @@
+# Use the Julia 1.6 Docker image as the base image
+FROM julia:1.6
+
+# Set the working directory inside the container
+WORKDIR /app
+
+# Copy the Genie project files into the container
+COPY . /app
+COPY cred.json /app
+
+
+# Install the necessary Julia packages
+RUN julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
+
+# Expose port 8000
+EXPOSE 8000
+
+# Start the Genie server
+CMD ["julia", "--project=.", "-e", "using Genie; Genie.startup()"]
